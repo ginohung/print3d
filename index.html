@@ -1,0 +1,1098 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>張頁印刷 3D模擬動畫</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;}
+  html,body{width:100%;height:100%;overflow:hidden;background:#15171c;
+    font-family:"Microsoft JhengHei","Segoe UI",Arial,sans-serif;color:#e8ebf0;}
+  #app{position:fixed;inset:0;}
+  canvas{display:block;}
+
+  .panel{position:absolute;background:rgba(20,23,30,.82);backdrop-filter:blur(6px);
+    border:1px solid rgba(255,255,255,.08);border-radius:12px;box-shadow:0 8px 30px rgba(0,0,0,.45);}
+
+  #title{top:18px;left:18px;padding:16px 20px;}
+  #title .big{font-size:27px;font-weight:800;letter-spacing:2px;}
+  #title .sub{font-size:17px;color:#9aa3b2;letter-spacing:1px;margin-top:4px;}
+
+  #status{top:96px;left:18px;width:300px;padding:14px 16px;}
+  #status .stage{display:inline-block;font-size:11px;font-weight:700;letter-spacing:2px;
+    color:#0b0d12;background:#5ad0a8;border-radius:5px;padding:3px 10px;}
+  #status .stage-name{font-size:15px;font-weight:700;margin:8px 0 6px;}
+  #status .desc{font-size:12px;line-height:1.6;color:#b9c0cc;}
+
+  #cmyk-ind{display:none;}
+
+  #preview{right:18px;bottom:96px;width:496px;padding:16px;cursor:grab;}
+  #preview:active{cursor:grabbing;}
+  #preview .ttl{font-size:22px;letter-spacing:2px;color:#9aa3b2;margin-bottom:12px;user-select:none;}
+  #preview canvas{width:100%;border-radius:10px;display:block;background:#fff;}
+  #preview .chips{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:16px;}
+  #preview .chip{height:44px;border-radius:8px;display:flex;align-items:center;justify-content:center;
+    font-size:22px;font-weight:700;color:#fff;opacity:.25;transition:opacity .3s;}
+  #preview .chip.on{opacity:1;}
+  .cC{background:#00aeef;} .cM{background:#ec008c;} .cY{background:#fff200;color:#444;} .cK{background:#231f20;}
+  #preview .htbtn{margin-top:14px;width:100%;padding:12px;border:1px solid rgba(255,255,255,.15);
+    background:rgba(255,255,255,.05);color:#cfd5df;border-radius:8px;font-size:22px;cursor:pointer;}
+  #preview .htbtn:hover{background:rgba(255,255,255,.12);}
+
+  #controls{bottom:18px;left:50%;transform:translateX(-50%);padding:10px 14px;
+    display:flex;gap:14px;align-items:center;flex-wrap:wrap;justify-content:center;}
+  #controls .grp{display:flex;gap:6px;align-items:center;}
+  #controls .lab{font-size:11px;color:#8a92a0;margin-right:2px;}
+  .btn{padding:8px 14px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.05);
+    color:#e8ebf0;border-radius:7px;font-size:13px;cursor:pointer;transition:.2s;white-space:nowrap;}
+  .btn:hover{background:rgba(255,255,255,.14);}
+  .btn.primary{background:#5ad0a8;color:#0b0d12;border-color:#5ad0a8;font-weight:700;}
+  .btn.primary:hover{background:#76e0bd;}
+  .pill{padding:6px 11px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.04);
+    color:#cfd5df;border-radius:6px;font-size:12px;cursor:pointer;}
+  .pill.active{background:#3a4150;color:#fff;border-color:#5a6475;}
+  .sep{width:1px;height:24px;background:rgba(255,255,255,.12);}
+
+  #help{bottom:18px;left:18px;padding:10px 14px;font-size:11px;color:#8a92a0;line-height:1.7;}
+  #help b{color:#cfd5df;font-weight:600;}
+
+  #upload-wrap{bottom:96px;left:18px;padding:10px 14px;}
+  #upload-wrap .lab{font-size:11px;color:#9aa3b2;display:block;margin-bottom:6px;}
+  #upload-wrap input{font-size:11px;color:#cfd5df;max-width:200px;}
+
+  #ht-modal{position:absolute;inset:0;background:rgba(8,9,12,.88);display:none;
+    align-items:center;justify-content:center;flex-direction:column;gap:16px;z-index:50;}
+  #ht-modal.show{display:flex;}
+  #ht-modal canvas{max-width:80vw;max-height:70vh;border-radius:10px;box-shadow:0 12px 50px rgba(0,0,0,.6);background:#fff;}
+  #ht-modal .ht-ttl{font-size:14px;letter-spacing:2px;color:#cfd5df;}
+  #ht-modal .closebtn{padding:9px 22px;}
+
+  #all-info-overlay{position:absolute;inset:0;background:rgba(8,10,15,.96);z-index:60;
+    display:none;flex-direction:column;overflow:hidden;}
+  #all-info-overlay.show{display:flex;}
+  #all-info-overlay .aio-hdr{display:flex;align-items:center;justify-content:space-between;
+    padding:16px 24px;border-bottom:1px solid rgba(255,255,255,.08);flex-shrink:0;}
+  #all-info-overlay .aio-hdr h2{font-size:32px;font-weight:800;letter-spacing:2px;}
+  #all-info-overlay .aio-close{background:none;border:1px solid rgba(255,255,255,.15);
+    color:#cfd5df;font-size:26px;padding:10px 20px;border-radius:6px;cursor:pointer;}
+  #all-info-overlay .aio-close:hover{background:rgba(255,255,255,.1);}
+  #all-info-overlay .aio-body{overflow-y:auto;padding:20px 24px;display:grid;
+    grid-template-columns:repeat(auto-fill,minmax(520px,1fr));gap:20px;}
+  #all-info-overlay .aio-card{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07);
+    border-radius:10px;padding:24px;}
+  #all-info-overlay .aio-card h3{font-size:26px;font-weight:700;color:#5ad0a8;margin-bottom:12px;line-height:1.4;}
+  #all-info-overlay .aio-card p{font-size:23px;line-height:1.75;color:#9faab8;}
+  #title .all-btn{display:block;margin-top:8px;font-size:15px;color:#5ad0a8;
+    background:none;border:1px solid rgba(90,208,168,.4);border-radius:5px;
+    padding:5px 12px;cursor:pointer;letter-spacing:1px;width:fit-content;}
+  #title .all-btn:hover{background:rgba(90,208,168,.12);}
+
+  #credit{bottom:18px;right:18px;padding:10px 16px;font-size:13px;
+    color:#6a7585;line-height:1.8;text-align:right;}
+  #credit a{color:#5ad0a8;text-decoration:none;}
+  #credit a:hover{text-decoration:underline;}
+
+  #info-panel{top:96px;left:18px;width:420px;max-height:calc(100vh - 310px);
+    overflow-y:auto;padding:16px 20px;z-index:30;display:none;}
+  #info-panel .ip-hdr{display:flex;align-items:center;justify-content:space-between;
+    margin-bottom:12px;cursor:grab;user-select:none;}
+  #info-panel .ip-hdr:active{cursor:grabbing;}
+  #info-panel .ip-tag{font-size:20px;font-weight:700;letter-spacing:2px;
+    color:#0b0d12;background:#5ad0a8;border-radius:4px;padding:4px 10px;}
+  #info-panel .ip-close{background:none;border:none;color:#7a8494;font-size:32px;
+    cursor:pointer;line-height:1;padding:0;margin-left:8px;flex-shrink:0;}
+  #info-panel .ip-close:hover{color:#e0e5ee;}
+  #info-panel .ip-title{font-size:30px;font-weight:700;line-height:1.4;margin-bottom:12px;color:#e8ebf0;}
+  #info-panel .ip-body{font-size:24px;line-height:1.8;color:#b9c0cc;}
+  #info-panel .ip-hint{margin-top:14px;font-size:20px;color:#5a6270;
+    border-top:1px solid rgba(255,255,255,.06);padding-top:10px;}
+
+  @media(max-width:760px){
+    #preview{width:170px;} #status{width:220px;} #title .big{font-size:15px;}
+    #controls{gap:8px;padding:8px;} #info-panel{width:220px;}
+  }
+</style>
+</head>
+<body>
+<div id="app"></div>
+
+<div id="title" class="panel">
+  <div class="big">張頁印刷 3D模擬動畫</div>
+  <div class="sub">四色印刷工程互動檢視器　|　單面四色機</div>
+  <button class="all-btn" onclick="showAllInfo()">查看全部專業說明 →</button>
+</div>
+
+<div id="all-info-overlay">
+  <div class="aio-hdr">
+    <h2>印刷專業術語完整說明</h2>
+    <button class="aio-close" onclick="document.getElementById('all-info-overlay').classList.remove('show')">✕ 關閉</button>
+  </div>
+  <div class="aio-body" id="aio-body"></div>
+</div>
+
+<div id="status" class="panel" style="display:none;">
+  <span class="stage" id="st-stage"></span>
+  <div class="stage-name" id="st-name"></div>
+</div>
+
+<div id="cmyk-ind" class="panel">
+  <span class="dot dK" data-c="K"></span>
+  <span class="dot dC" data-c="C"></span>
+  <span class="dot dM" data-c="M"></span>
+  <span class="dot dY" data-c="Y"></span>
+</div>
+
+<div id="info-panel" class="panel">
+  <div class="ip-hdr">
+    <span class="ip-tag">印刷部件說明</span>
+    <button class="ip-close" onclick="closeInfoPanel()">✕</button>
+  </div>
+  <div class="ip-title" id="ip-title"></div>
+  <div class="ip-body" id="ip-body"></div>
+  <div class="ip-hint">點擊標籤顯示說明 · 拖曳標籤可移動位置</div>
+</div>
+
+<div id="preview" class="panel">
+  <div class="ttl">印刷成品預覽</div>
+  <canvas id="prev-canvas" width="448" height="336"></canvas>
+  <div class="chips">
+    <div class="chip cC" data-c="C">C</div>
+    <div class="chip cM" data-c="M">M</div>
+    <div class="chip cY" data-c="Y">Y</div>
+    <div class="chip cK" data-c="K">K</div>
+  </div>
+</div>
+
+<div id="upload-wrap" class="panel">
+  <label class="lab">📤 載入自訂圖片印刷：</label>
+  <input type="file" id="imgUpload" accept="image/*">
+</div>
+
+<div id="controls" class="panel">
+  <button class="btn primary" id="playBtn">⏸ 暫停</button>
+  <button class="btn" id="resetBtn">↺ 重置</button>
+  <div class="sep"></div>
+  <div class="grp"><span class="lab">速度</span>
+    <span class="pill" data-spd="0.5">0.5×</span>
+    <span class="pill active" data-spd="1">1×</span>
+    <span class="pill" data-spd="2">2×</span>
+  </div>
+  <div class="sep"></div>
+  <div class="grp"><span class="lab">色序</span>
+    <span class="pill active" data-order="KCMY">黑→青→洋紅→黃</span>
+    <span class="pill" data-order="KMCY">黑→洋紅→青→黃</span>
+  </div>
+  <div class="sep"></div>
+  <button class="btn" id="labelBtn">🏷 標籤 開</button>
+</div>
+
+<div id="help" class="panel">
+  <b>左鍵拖曳</b>：旋轉　／　<b>滾輪</b>：縮放　／　<b>右鍵拖曳</b>：平移
+</div>
+
+<div id="credit" class="panel">
+  開發者：GinoHung<br>
+  參考學習網站：<a href="https://amix-design.com/asoboad/tools/3d-offset/" target="_blank">amix-design.com</a>
+</div>
+
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="iso_chart.js"></script>
+<script>
+/* =========================================================
+   膠印張頁印刷機 3D（全部以 Three.js 基礎幾何體拼裝）
+   滾筒軸 = Z 軸（垂直於紙張行進方向 X 軸）
+   紙張 = 水平平放，圖案朝上，沿 X 軸行進
+   ========================================================= */
+
+const app = document.getElementById('app');
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x191c23);
+scene.fog = new THREE.Fog(0x191c23, 80, 180);
+
+const camera = new THREE.PerspectiveCamera(55, innerWidth/innerHeight, 0.1, 500);
+
+const renderer = new THREE.WebGLRenderer({antialias:true});
+renderer.setSize(innerWidth, innerHeight);
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.outputEncoding = THREE.sRGBEncoding;
+app.appendChild(renderer.domElement);
+const canvas = renderer.domElement;
+
+// ---------- 燈光（加亮頂部）----------
+scene.add(new THREE.AmbientLight(0xffffff, 0.78));
+const hemi = new THREE.HemisphereLight(0xcfe0ff, 0x303440, 0.7);
+scene.add(hemi);
+const key = new THREE.DirectionalLight(0xffffff, 1.15);
+key.position.set(24, 46, 30);
+key.castShadow = true;
+key.shadow.mapSize.set(2048,2048);
+key.shadow.camera.near=1; key.shadow.camera.far=180;
+key.shadow.camera.left=-80; key.shadow.camera.right=80;
+key.shadow.camera.top=80; key.shadow.camera.bottom=-80;
+scene.add(key);
+// 正上方補光，提亮頂部墨輥
+const topLight = new THREE.DirectionalLight(0xffffff, 0.7);
+topLight.position.set(0, 60, 6); scene.add(topLight);
+const fill = new THREE.DirectionalLight(0x9bbcff, 0.3);
+fill.position.set(-30,20,-24); scene.add(fill);
+
+// ---------- 全域 ----------
+const CFG = {
+  unitGap: 16,
+  paperPathY: 5.4,        // 紙張行進高度（橡皮布↔印壓 壓印點，相切處）
+  paperLen: 11,           // 紙張沿 X 長度
+  paperWid: 8,            // 紙張沿 Z 寬度
+  feederX: 44, deliveryX: -44,
+};
+let printOrder = ['K','C','M','Y'];
+let speed = 1, paused = false, showLabels = true;
+
+function unitX(i){ return (1.5 - i) * CFG.unitGap; }   // i=0 最右(+21)
+
+const INK = {
+  C:{hex:0x00aeef, css:'#00aeef'},
+  M:{hex:0xec008c, css:'#ec008c'},
+  Y:{hex:0xfff200, css:'#fff200'},
+  K:{hex:0x222222, css:'#222222'},
+};
+const COLOR_NAME = {K:'黑 (K)',C:'青 (C)',M:'洋紅 (M)',Y:'黃 (Y)'};
+
+// =========================================================
+//  海報圖
+// =========================================================
+const POSTER_W=400, POSTER_H=300;
+const posterCanvas=document.createElement('canvas');
+posterCanvas.width=POSTER_W; posterCanvas.height=POSTER_H;
+let customImage=null;
+
+function drawPoster(){
+  const c=posterCanvas.getContext('2d');
+  c.clearRect(0,0,POSTER_W,POSTER_H);
+  if(customImage){
+    const ir=customImage.width/customImage.height, pr=POSTER_W/POSTER_H;
+    let dw,dh,dx,dy;
+    if(ir>pr){dh=POSTER_H;dw=dh*ir;dx=(POSTER_W-dw)/2;dy=0;}
+    else{dw=POSTER_W;dh=dw/ir;dx=0;dy=(POSTER_H-dh)/2;}
+    c.fillStyle='#fff';c.fillRect(0,0,POSTER_W,POSTER_H);
+    c.drawImage(customImage,dx,dy,dw,dh); return;
+  }
+  const sky=c.createLinearGradient(0,0,0,POSTER_H);
+  sky.addColorStop(0,'#3a1a5e');sky.addColorStop(.45,'#a8327d');
+  sky.addColorStop(.7,'#ff6b6b');sky.addColorStop(1,'#ffb36b');
+  c.fillStyle=sky;c.fillRect(0,0,POSTER_W,POSTER_H);
+  const sun=c.createRadialGradient(285,120,8,285,120,75);
+  sun.addColorStop(0,'#fff9e6');sun.addColorStop(.5,'#ffe07a');sun.addColorStop(1,'rgba(255,200,90,0)');
+  c.fillStyle=sun;c.beginPath();c.arc(285,120,75,0,7);c.fill();
+  c.fillStyle='#fff3c4';c.beginPath();c.arc(285,120,30,0,7);c.fill();
+  c.fillStyle='#4a2a6e';c.beginPath();c.moveTo(0,210);
+  c.lineTo(70,150);c.lineTo(150,200);c.lineTo(240,140);c.lineTo(320,195);
+  c.lineTo(400,160);c.lineTo(400,300);c.lineTo(0,300);c.closePath();c.fill();
+  c.fillStyle='#241433';c.beginPath();c.moveTo(0,260);
+  c.lineTo(90,210);c.lineTo(180,255);c.lineTo(280,205);c.lineTo(400,250);
+  c.lineTo(400,300);c.lineTo(0,300);c.closePath();c.fill();
+  c.fillStyle='rgba(255,180,120,.18)';c.fillRect(0,260,POSTER_W,40);
+  c.fillStyle='#fff';c.font='800 56px Arial';c.textAlign='left';c.fillText('OFFSET',26,90);
+  c.fillStyle='rgba(255,255,255,.9)';c.font='600 16px Arial';c.fillText('C M Y K   P R O C E S S',28,116);
+}
+
+// CMYK 分色
+let sepC,sepM,sepY,sepK,sepReady=false;
+function computeSeparation(){
+  drawPoster();
+  const data=posterCanvas.getContext('2d').getImageData(0,0,POSTER_W,POSTER_H).data;
+  const n=POSTER_W*POSTER_H;
+  sepC=new Float32Array(n);sepM=new Float32Array(n);sepY=new Float32Array(n);sepK=new Float32Array(n);
+  for(let i=0;i<n;i++){
+    const r=data[i*4]/255,g=data[i*4+1]/255,b=data[i*4+2]/255;
+    const k=1-Math.max(r,g,b);let cc=0,mm=0,yy=0;
+    if(k<0.9999){cc=(1-r-k)/(1-k);mm=(1-g-k)/(1-k);yy=(1-b-k)/(1-k);}
+    sepC[i]=cc;sepM[i]=mm;sepY[i]=yy;sepK[i]=k;
+  }
+  sepReady=true;
+}
+function renderSeparation(applied,w,h){
+  const cv=document.createElement('canvas');cv.width=w;cv.height=h;
+  const ctx=cv.getContext('2d');const out=ctx.createImageData(w,h);const od=out.data;
+  const uC=applied.has('C'),uM=applied.has('M'),uY=applied.has('Y'),uK=applied.has('K');
+  for(let y=0;y<h;y++){const sy=Math.floor(y/h*POSTER_H);
+    for(let x=0;x<w;x++){const sx=Math.floor(x/w*POSTER_W);const si=sy*POSTER_W+sx;
+      let r=1,g=1,b=1;
+      if(uC)r*=(1-sepC[si]); if(uM)g*=(1-sepM[si]); if(uY)b*=(1-sepY[si]);
+      if(uK){const kk=1-sepK[si];r*=kk;g*=kk;b*=kk;}
+      const di=(y*w+x)*4;od[di]=r*255;od[di+1]=g*255;od[di+2]=b*255;od[di+3]=255;}}
+  ctx.putImageData(out,0,0);return cv;
+}
+let paperTextures=[];
+function buildPaperTextures(){
+  paperTextures.forEach(t=>t.dispose&&t.dispose());paperTextures=[];
+  for(let n=0;n<=4;n++){
+    const applied=new Set(printOrder.slice(0,n));
+    const cv=document.createElement('canvas');cv.width=256;cv.height=192;
+    const ctx=cv.getContext('2d');ctx.fillStyle='#fff';ctx.fillRect(0,0,256,192);
+    ctx.drawImage(renderSeparation(applied,232,168),12,12);
+    const tex=new THREE.CanvasTexture(cv);tex.anisotropy=4;paperTextures.push(tex);
+  }
+}
+
+// =========================================================
+//  材質
+// =========================================================
+const matDarkMetal=new THREE.MeshStandardMaterial({color:0x2b2f38,metalness:.55,roughness:.45});
+const matHousing  =new THREE.MeshStandardMaterial({color:0x262b34,metalness:.4,roughness:.55});
+const matRoller   =new THREE.MeshStandardMaterial({color:0xa6afbd,metalness:.9,roughness:.16});
+const matRubber   =new THREE.MeshStandardMaterial({color:0x3a3f49,metalness:.2,roughness:.72});
+function tintMat(hex,amt){
+  const mixed=new THREE.Color(0xa6afbd).lerp(new THREE.Color(hex),amt);
+  return new THREE.MeshStandardMaterial({color:mixed,metalness:.78,roughness:.22});
+}
+// 帶縱向條紋的滾筒材質（讓滾動轉動可見）
+function stripeMat(baseHex,amt){
+  const base=new THREE.Color(0xa6afbd).lerp(new THREE.Color(baseHex),amt);
+  const cv=document.createElement('canvas');cv.width=256;cv.height=64;const x=cv.getContext('2d');
+  x.fillStyle='#'+base.getHexString();x.fillRect(0,0,256,64);
+  x.fillStyle='rgba(0,0,0,.20)';for(let i=0;i<256;i+=64)x.fillRect(i,0,9,64);
+  const t=new THREE.CanvasTexture(cv);t.wrapS=t.wrapT=THREE.RepeatWrapping;t.repeat.set(4,1);t.anisotropy=4;
+  return new THREE.MeshStandardMaterial({map:t,metalness:.78,roughness:.24});
+}
+
+// 印版滾筒材質（正面）— 印刷面積限縮至 paperWid，上下各留夾版邊距
+function makePlateTex(col){
+  const sep=col==='C'?sepC:col==='M'?sepM:col==='Y'?sepY:sepK;
+  const W=512,H=384;
+  const cylLen=CFG.paperWid+1.8;
+  const printH=Math.round(H*CFG.paperWid/cylLen); // 印刷區域像素高度
+  const yOff  =Math.round((H-printH)/2);           // 上下留白（版夾邊距）
+  const cv=document.createElement('canvas');cv.width=W;cv.height=H;
+  const ctx=cv.getContext('2d');
+  const id=ctx.createImageData(W,H);
+  const ic=new THREE.Color(INK[col].hex);
+  for(let y=0;y<H;y++){
+    const inP=y>=yOff&&y<yOff+printH;
+    const sy=inP?Math.floor((printH-1-(y-yOff))/printH*POSTER_H):-1;
+    for(let x=0;x<W;x++){
+      const di=(y*W+x)*4;
+      if(!inP){id.data[di]=184;id.data[di+1]=190;id.data[di+2]=196;id.data[di+3]=255;continue;}
+      const sx=Math.floor(x/W*POSTER_W);const d=sep[sy*POSTER_W+sx];
+      id.data[di]  =Math.round(184*(1-d)+ic.r*255*d);
+      id.data[di+1]=Math.round(190*(1-d)+ic.g*255*d);
+      id.data[di+2]=Math.round(196*(1-d)+ic.b*255*d);
+      id.data[di+3]=255;
+    }
+  }
+  ctx.putImageData(id,0,0);
+  const t=new THREE.CanvasTexture(cv);t.wrapS=t.wrapT=THREE.RepeatWrapping;t.repeat.set(2,1);
+  const side=new THREE.MeshStandardMaterial({map:t,metalness:.48,roughness:.34});
+  const cap =new THREE.MeshStandardMaterial({color:0xb0b8c0,metalness:.8,roughness:.2});
+  return [side,cap,cap];
+}
+// 橡皮布滾筒材質（鏡像）— 同樣限縮印刷面積，X水平翻轉
+function makeBlanketTex(col){
+  const sep=col==='C'?sepC:col==='M'?sepM:col==='Y'?sepY:sepK;
+  const W=512,H=384;
+  const cylLen=CFG.paperWid+1.8;
+  const printH=Math.round(H*CFG.paperWid/cylLen);
+  const yOff  =Math.round((H-printH)/2);
+  const cv=document.createElement('canvas');cv.width=W;cv.height=H;
+  const ctx=cv.getContext('2d');
+  const id=ctx.createImageData(W,H);
+  const ic=new THREE.Color(INK[col].hex);
+  for(let y=0;y<H;y++){
+    const inP=y>=yOff&&y<yOff+printH;
+    const sy=inP?Math.floor((printH-1-(y-yOff))/printH*POSTER_H):-1;
+    for(let x=0;x<W;x++){
+      const di=(y*W+x)*4;
+      if(!inP){id.data[di]=52;id.data[di+1]=55;id.data[di+2]=62;id.data[di+3]=255;continue;}
+      const sx=Math.floor((W-1-x)/W*POSTER_W);const d=sep[sy*POSTER_W+sx];
+      // 橡皮布底色(#424850)→ 油墨色；提高基底亮度使影像可見
+      id.data[di]  =Math.round(155*(1-d)+ic.r*255*d);
+      id.data[di+1]=Math.round(158*(1-d)+ic.g*255*d);
+      id.data[di+2]=Math.round(164*(1-d)+ic.b*255*d);
+      id.data[di+3]=255;
+    }
+  }
+  ctx.putImageData(id,0,0);
+  const t=new THREE.CanvasTexture(cv);t.wrapS=t.wrapT=THREE.RepeatWrapping;t.repeat.set(2,1);
+  const side=new THREE.MeshStandardMaterial({map:t,metalness:.18,roughness:.68});
+  const cap =new THREE.MeshStandardMaterial({color:0x3a3f49,metalness:.3,roughness:.7});
+  return [side,cap,cap];
+}
+
+// =========================================================
+//  文字標籤（繁體中文）
+// =========================================================
+const labelSprites=[];
+function roundRect(ctx,x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);
+  ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath();}
+
+function makeUnitLabel(idx,col){
+  const cv=document.createElement('canvas');cv.width=320;cv.height=96;const x=cv.getContext('2d');
+  x.fillStyle='rgba(15,17,22,.9)';roundRect(x,6,18,308,60,14);x.fill();
+  x.strokeStyle=INK[col].css;x.lineWidth=3;roundRect(x,6,18,308,60,14);x.stroke();
+  x.fillStyle=INK[col].css;x.beginPath();x.arc(46,48,16,0,7);x.fill();
+  x.fillStyle='#fff';x.font='bold 30px "Microsoft JhengHei",Arial';x.textBaseline='middle';
+  x.fillText('單元 '+(idx+1)+' · '+col,76,50);
+  const tex=new THREE.CanvasTexture(cv);
+  const s=new THREE.Sprite(new THREE.SpriteMaterial({map:tex,transparent:true,depthTest:false}));
+  s.scale.set(8,2.4,1);return s;
+}
+function makeCylLabel(zh,en){
+  const cv=document.createElement('canvas');cv.width=256;cv.height=96;const x=cv.getContext('2d');
+  x.fillStyle='rgba(15,17,22,.88)';roundRect(x,4,14,248,68,12);x.fill();
+  x.fillStyle='#fff';x.font='bold 28px "Microsoft JhengHei",Arial';x.textBaseline='middle';
+  x.fillText(zh,18,40);
+  x.fillStyle='#9fb0c6';x.font='600 18px Arial';x.fillText(en,18,66);
+  const tex=new THREE.CanvasTexture(cv);
+  const s=new THREE.Sprite(new THREE.SpriteMaterial({map:tex,transparent:true,depthTest:false}));
+  s.scale.set(5.2,1.95,1);return s;
+}
+function makeTextLabel(zh,en,colorCss){
+  const cv=document.createElement('canvas');cv.width=224;cv.height=88;const x=cv.getContext('2d');
+  x.fillStyle='rgba(15,17,22,.9)';roundRect(x,4,12,216,64,12);x.fill();
+  x.fillStyle=colorCss||'#fff';x.font='bold 30px "Microsoft JhengHei",Arial';x.textBaseline='middle';
+  x.fillText(zh,18,38);
+  x.fillStyle='#9fb0c6';x.font='600 16px Arial';x.fillText(en,18,64);
+  const tex=new THREE.CanvasTexture(cv);
+  const s=new THREE.Sprite(new THREE.SpriteMaterial({map:tex,transparent:true,depthTest:false}));
+  s.scale.set(5,2,1);return s;
+}
+
+// =========================================================
+//  滾筒：軸沿 Z（用 Group 旋轉），內 mesh 繞自身 Y 自轉=滾動
+// =========================================================
+const rollers=[];   // {mesh,dir}
+const exteriorPanels=[];
+function addRoller(parent,x,y,z,r,len,mat,dir,initRot=0){
+  const g=new THREE.Group();
+  g.position.set(x,y,z);
+  g.rotation.x=Math.PI/2;          // 內 mesh 的 Y 軸 → 世界 Z 軸
+  const m=new THREE.Mesh(new THREE.CylinderGeometry(r,r,len,40),mat);
+  m.castShadow=true;m.rotation.y=initRot;
+  g.add(m);
+  // 端面軸頭
+  [-1,1].forEach(s=>{
+    const cap=new THREE.Mesh(new THREE.CylinderGeometry(r*0.32,r*0.32,0.6,16),matRoller);
+    cap.position.y=s*(len/2+0.25); g.add(cap);
+  });
+  parent.add(g);
+  rollers.push({mesh:m,dir});
+  return g;
+}
+
+// =========================================================
+//  建立場景
+// =========================================================
+let feederGroup,deliveryGroup,deliveryStack;
+function buildScene(){
+  // 地板 + 網格
+  const floor=new THREE.Mesh(new THREE.PlaneGeometry(240,140),
+    new THREE.MeshStandardMaterial({color:0x232831,metalness:.1,roughness:.95}));
+  floor.rotation.x=-Math.PI/2;floor.receiveShadow=true;scene.add(floor);
+  const grid=new THREE.GridHelper(240,60,0x3f4756,0x2c323c);grid.position.y=0.02;scene.add(grid);
+
+  // 機身底座（沿 X 長條）
+  const base=new THREE.Mesh(new THREE.BoxGeometry(118,1.4,16),matDarkMetal);
+  base.position.set(0,0.7,0);base.castShadow=base.receiveShadow=true;scene.add(base);
+
+  // 紙路導引黃線（兩側）
+  [-3.4,3.4].forEach(z=>{
+    const line=new THREE.Mesh(new THREE.BoxGeometry(100,0.06,0.35),
+      new THREE.MeshStandardMaterial({color:0xffd400,emissive:0x4a3d00,roughness:.5}));
+    line.position.set(0,1.45,z);scene.add(line);
+  });
+
+  printOrder.forEach((col,i)=>buildUnit(i,col));
+  buildFeeder(); buildDelivery();
+  buildExteriorHousing();
+
+  // 牆面（單面材質：從牆後方可透視印刷機，不會被擋住）
+  const wallMat=()=>new THREE.MeshStandardMaterial({color:0x1b1f27,metalness:.15,roughness:.95,side:THREE.FrontSide});
+  const backWall=new THREE.Mesh(new THREE.PlaneGeometry(170,52),wallMat());
+  backWall.position.set(0,24,-26);backWall.receiveShadow=true;scene.add(backWall);          // 法線 +Z 朝室內
+  const sideWallL=new THREE.Mesh(new THREE.PlaneGeometry(56,52),wallMat());
+  sideWallL.position.set(-82,24,0);sideWallL.rotation.y=Math.PI/2;scene.add(sideWallL);      // 法線 +X 朝室內
+  const sideWallR=new THREE.Mesh(new THREE.PlaneGeometry(56,52),wallMat());
+  sideWallR.position.set(82,24,0);sideWallR.rotation.y=-Math.PI/2;scene.add(sideWallR);      // 法線 -X 朝室內
+
+  // 背景螢幕（貼在後牆上）
+  const scr=new THREE.Mesh(new THREE.BoxGeometry(13,6,0.6),
+    new THREE.MeshStandardMaterial({color:0x0d0f14,emissive:0x0e1726}));
+  scr.position.set(0,16,-25.3);scene.add(scr);
+  const face=new THREE.Mesh(new THREE.PlaneGeometry(12,5),new THREE.MeshBasicMaterial({map:makeScreenTexture()}));
+  face.position.set(0,16,-24.95);scene.add(face);
+}
+
+function makeScreenTexture(){
+  const cv=document.createElement('canvas');cv.width=360;cv.height=150;const x=cv.getContext('2d');
+  x.fillStyle='#0d1018';x.fillRect(0,0,360,150);
+  x.fillStyle='#5ad0a8';x.font='bold 26px Arial';x.fillText('PRESS  ROOM  01',54,48);
+  x.fillStyle='#231f20';x.fillRect(50,90,55,16);
+  x.fillStyle='#00aeef';x.fillRect(115,90,55,16);
+  x.fillStyle='#ec008c';x.fillRect(180,90,55,16);
+  x.fillStyle='#fff200';x.fillRect(245,90,55,16);
+  return new THREE.CanvasTexture(cv);
+}
+
+// 印刷單元前板紋理（顯示三個滾筒圓形輪廓，仿真實機器外觀）
+function makeFrontPanelTexture(){
+  const cv=document.createElement('canvas');cv.width=256;cv.height=512;
+  const ctx=cv.getContext('2d');
+  // 上部（機構可見區）
+  ctx.fillStyle='#3d4552';ctx.fillRect(0,0,256,460);
+  // 頂帽條
+  ctx.fillStyle='#4e5866';ctx.fillRect(0,0,256,20);
+  // 底部實板
+  ctx.fillStyle='#2e3640';ctx.fillRect(0,460,256,52);
+  // 視窗框
+  ctx.fillStyle='#1a2028';ctx.fillRect(26,26,204,434);
+  ctx.fillStyle='#252f38';ctx.fillRect(32,32,192,422);
+  // 三大滾筒（按 scene y 位置映射：plate@y12.9→cy=182, blanket@y8.0→cy=307, impression@y2.8→cy=440）
+  [[128,182,63,'plate'],[128,307,71,'blanket'],[128,440,71,'imp']].forEach(([cx,cy,r])=>{
+    ctx.fillStyle='#3e4a52';ctx.beginPath();ctx.arc(cx,cy,r+5,0,Math.PI*2);ctx.fill();
+    const g=ctx.createRadialGradient(cx-r*.38,cy-r*.38,2,cx,cy,r);
+    g.addColorStop(0,'#ecf4fc');g.addColorStop(.5,'#bcccd8');g.addColorStop(1,'#5c7080');
+    ctx.fillStyle=g;ctx.beginPath();ctx.arc(cx,cy,r,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle='#2e3840';ctx.beginPath();ctx.arc(cx,cy,9,0,Math.PI*2);ctx.fill();
+  });
+  return new THREE.CanvasTexture(cv);
+}
+
+function buildUnit(i,col){
+  const x=unitX(i);
+  const g=new THREE.Group();g.position.x=x;scene.add(g);
+
+  // 機架：只用左右側牆（前後與頂部全開放，從正面、背面、上方都能看到滾筒與給墨槽）
+  // 側牆使用可透明材質，拉近時隨外觀板一起淡出讓滾筒可見
+  const wallMat=new THREE.MeshStandardMaterial({color:0x262b34,metalness:.18,roughness:.55,transparent:true,opacity:1});
+  const lw=new THREE.Mesh(new THREE.BoxGeometry(1.0,15,10.4),wallMat);lw.position.set(-4.7,7.5,0);lw.castShadow=true;g.add(lw);
+  const rw=new THREE.Mesh(new THREE.BoxGeometry(1.0,15,10.4),wallMat);rw.position.set(4.7,7.5,0);rw.castShadow=true;g.add(rw);
+  exteriorPanels.push(lw,rw);
+  const beam=new THREE.Mesh(new THREE.BoxGeometry(9.4,1.0,10.4),matDarkMetal);beam.position.set(0,0.6,0);g.add(beam); // 底橫樑
+
+  // ===== 三大滾筒（軸沿 Z）相切堆疊，依參考圖：印版→橡皮布→[紙張]→印壓 =====
+  // 印版(r2.3) 中心12.9 / 橡皮布(r2.6) 中心8.0 / 印壓(r2.6) 中心2.8
+  // 相切點：印版-橡皮布 @10.6；橡皮布-印壓 @5.4(=紙張壓印點)
+  // 紙張往 -X 行進；壓印點兩滾筒表面同向 -X → 印版+1 橡皮布-1 印壓+1
+  const len=CFG.paperWid+1.8;
+  // 計算橡皮布起始旋轉角，使正面觀看時橡皮布與印版顯示相同（互為鏡像）的影像區域
+  // 公式推導：plate+blanket U_front 互補 → rotation_blanket=(2·C-1)·2π
+  // C 由預設相機角度對各單元的視角決定
+  (function(){
+    const camX=Math.sin(-0.6)*Math.cos(0.40)*100; // ≈ -52.0
+    const camY=8+Math.sin(0.40)*100;               // ≈ 46.9
+    let ang=Math.atan2(camY-8.0, camX-unitX(i));   // 橡皮布在 y=8.0
+    let deg=ang*180/Math.PI; if(deg<0)deg+=360;
+    const Uf=(deg/360+0.25)%1;
+    window._blanketRot=(2*Uf-0.5)*Math.PI*2; // repeat=2 補償：(2C-0.5)·2π 使正面影像互為鏡像
+  })();
+  addRoller(g,0,12.9,0,2.3,len,makePlateTex(col),+1);          // 印版滾筒（正面影像）
+  addRoller(g,0,8.0 ,0,2.6,len,makeBlanketTex(col),-1,window._blanketRot); // 橡皮布滾筒（鏡像影像）
+  addRoller(g,0,2.8 ,0,2.6,len,stripeMat(0xffffff,0.0),+1);       // 印壓滾筒
+
+  // ===== 供墨系統（右上）：著墨輥 + 墨槽（橫向長槽，置於頂部）=====
+  const inkMat=()=>new THREE.MeshStandardMaterial({color:INK[col].hex,metalness:.45,roughness:.32});
+  addRoller(g,1.3,15.7,0,0.95,len-1.6,inkMat(),-1);   // 著墨輥（接觸印版頂部）
+  addRoller(g,2.9,16.1,0,0.85,len-2.0,inkMat(),+1);   // 著墨輥
+  const inkFount=new THREE.Mesh(new THREE.BoxGeometry(2.2,1.3,len-1.0),
+    new THREE.MeshStandardMaterial({color:INK[col].hex,metalness:.25,roughness:.5}));
+  inkFount.position.set(3.9,17.4,0);g.add(inkFount);   // 墨槽（橫向長槽）
+
+  // ===== 供水系統（左上）：靠版水輥 + 水斗輥 + 水槽（橫向長槽）=====
+  addRoller(g,-1.4,15.7,0,0.9,len-1.8,matRoller,-1);  // 靠版水輥（接觸印版）
+  addRoller(g,-2.9,16.1,0,0.7,len-2.2,matRoller,+1);  // 水斗輥
+  const waterFount=new THREE.Mesh(new THREE.BoxGeometry(1.6,1.2,len-1.0),
+    new THREE.MeshStandardMaterial({color:0x2f8fe0,metalness:.3,roughness:.35,emissive:0x0a3a66,emissiveIntensity:.3}));
+  waterFount.position.set(-3.4,14.8,0);g.add(waterFount); // 水槽（水斗輥正下方）
+
+  // 單元頂標（所有單元都顯示）
+  const ul=makeUnitLabel(i,col);ul.position.set(0,20.6,0);ul.userData.infoKey='印刷單元';g.add(ul);labelSprites.push(ul);
+
+
+  // 細部零件標籤：只在一組單元（單元4·Y）顯示，依參考圖命名
+  if(i===3){
+    const add=(zh,en,x,y,z)=>{const s=makeCylLabel(zh,en);s.position.set(x,y,z);s.userData.infoKey=zh;g.add(s);labelSprites.push(s);};
+    // 供墨系統（右側）
+    add('墨斗','Ink Fountain',         5.5,19.8,4.0);
+    add('著墨輥','Form Inking Rollers', 5.5,15.8,4.0);
+    // 供水系統（左側）
+    add('水斗輥','Water Fount. Rlr.', -5.5,17.8,4.0);
+    add('靠版水輥','Form Damp. Rlr.', -5.5,15.0,4.0);
+    add('水槽','Water Fountain',      -5.5,13.2,4.0);
+    // 三大滾筒（居中）
+    add('印版滾筒','Plate Cylinder',   0.0,12.8,5.2);
+    add('橡皮布滾筒','Blanket Cylinder',0.0,8.0 ,5.2);
+    add('紙張','Paper Sheet',         -4.5,5.0 ,5.2);
+    add('壓印滾筒','Impression Cyl.', 0.0,2.6 ,5.2);
+  }
+}
+
+function buildFeeder(){
+  feederGroup=new THREE.Group();feederGroup.position.x=CFG.feederX;scene.add(feederGroup);
+  const fMat=new THREE.MeshStandardMaterial({color:0x353d48,metalness:.28,roughness:.62});
+  // 主體框架
+  const fr=new THREE.Mesh(new THREE.BoxGeometry(18,7,11),fMat);
+  fr.position.set(0,3.5,0);fr.castShadow=true;feederGroup.add(fr);
+  // 傾斜給紙台面
+  const plat=new THREE.Mesh(new THREE.BoxGeometry(16,0.5,10.4),
+    new THREE.MeshStandardMaterial({color:0xbcc4cc,metalness:.15,roughness:.55}));
+  plat.position.set(0,7.5,0);plat.rotation.z=-0.10;plat.castShadow=true;feederGroup.add(plat);
+  // 紙張堆
+  const stack=new THREE.Mesh(new THREE.BoxGeometry(CFG.paperLen,2.8,CFG.paperWid),
+    new THREE.MeshStandardMaterial({color:0xf4f4f0,roughness:.9}));
+  stack.position.set(0,8.6,0);feederGroup.add(stack);
+  // 前擋板
+  const fw=new THREE.Mesh(new THREE.BoxGeometry(0.5,7,10.4),fMat);
+  fw.position.set(-8,3.5,0);feederGroup.add(fw);
+  // 吸紙臂
+  const arm=new THREE.Mesh(new THREE.BoxGeometry(0.8,0.4,8),matDarkMetal);
+  arm.position.set(-4,11.5,0);feederGroup.add(arm);
+  // ── 給紙部外觀蓋板（LOD）──
+  const hF=13.5, hR=8.0, hW=9.2, hD=5.6;  // outer h, inner h, half-width, half-depth
+  const hm=()=>new THREE.MeshStandardMaterial({color:0x3d4652,metalness:.25,roughness:.65,transparent:true,opacity:1,side:THREE.DoubleSide});
+  // 前後板
+  [[hD],[- hD]].forEach(([zi,ry])=>{
+    const p=new THREE.Mesh(new THREE.PlaneGeometry(hW*2,hF),hm());
+    p.position.set(0,hF/2,zi);if(ry)p.rotation.y=ry;feederGroup.add(p);exteriorPanels.push(p);
+  });
+  // 外側（local +x, 高 hF）
+  const op=new THREE.Mesh(new THREE.PlaneGeometry(hD*2,hF),hm());
+  op.position.set(hW,hF/2,0);op.rotation.y=-Math.PI/2;feederGroup.add(op);exteriorPanels.push(op);
+  // 內側（local -x, 高 hR）
+  const ip=new THREE.Mesh(new THREE.PlaneGeometry(hD*2,hR),hm());
+  ip.position.set(-hW,hR/2,0);ip.rotation.y=Math.PI/2;feederGroup.add(ip);exteriorPanels.push(ip);
+  // 傾斜頂蓋（外側 hF，內側 hR）
+  const tAng=Math.atan2(hF-hR,hW*2);
+  const tLen=Math.sqrt((hW*2)**2+(hF-hR)**2);
+  const top=new THREE.Mesh(new THREE.BoxGeometry(tLen+0.6,0.7,hD*2),
+    new THREE.MeshStandardMaterial({color:0x454e5a,transparent:true,opacity:1}));
+  top.position.set(0,(hF+hR)/2,0);top.rotation.z=tAng;feederGroup.add(top);exteriorPanels.push(top);
+  const lab=makeTextLabel('給紙','Feeder','#5ad0a8');lab.position.set(0,16,0);lab.userData.infoKey='給紙';feederGroup.add(lab);labelSprites.push(lab);
+}
+
+const DELIV_BASE=6.0;                      // 收紙堆底面固定高度（往上疊）
+function makeDeliveryMats(){
+  const white=()=>new THREE.MeshStandardMaterial({color:0xe6e6e0,roughness:.85});
+  const top=new THREE.MeshBasicMaterial({color:0xf2f2ee}); // 初始空白，第一張紙收到後才貼圖
+  return [white(),white(),top,white(),white(),white()];
+}
+function buildDelivery(){
+  deliveryGroup=new THREE.Group();deliveryGroup.position.x=CFG.deliveryX;scene.add(deliveryGroup);
+  const dMat=new THREE.MeshStandardMaterial({color:0x353d48,metalness:.28,roughness:.62});
+  const fr=new THREE.Mesh(new THREE.BoxGeometry(13,6,11),dMat);fr.position.set(0,3,0);fr.castShadow=true;deliveryGroup.add(fr);
+  deliveryStack=new THREE.Mesh(new THREE.BoxGeometry(CFG.paperLen,0.3,CFG.paperWid), makeDeliveryMats());
+  deliveryStack.position.set(0,DELIV_BASE+0.15,0);deliveryStack.castShadow=true;deliveryGroup.add(deliveryStack);
+  // ── 收紙部外觀蓋板（LOD）──
+  const dH=10, dW=6.8, dD=5.6;
+  const dm=()=>new THREE.MeshStandardMaterial({color:0x3d4652,metalness:.25,roughness:.65,transparent:true,opacity:1,side:THREE.DoubleSide});
+  // 前後板
+  const dfp=new THREE.Mesh(new THREE.PlaneGeometry(dW*2,dH),dm());
+  dfp.position.set(0,dH/2,dD);deliveryGroup.add(dfp);exteriorPanels.push(dfp);
+  const dbp=new THREE.Mesh(new THREE.PlaneGeometry(dW*2,dH),dm());
+  dbp.position.set(0,dH/2,-dD);dbp.rotation.y=Math.PI;deliveryGroup.add(dbp);exteriorPanels.push(dbp);
+  // 頂板
+  const dtp=new THREE.Mesh(new THREE.PlaneGeometry(dW*2,dD*2),dm());
+  dtp.rotation.x=-Math.PI/2;dtp.position.set(0,dH,0);deliveryGroup.add(dtp);exteriorPanels.push(dtp);
+  // 外側板（local -x，遠離印刷機）
+  const dop=new THREE.Mesh(new THREE.PlaneGeometry(dD*2,dH),dm());
+  dop.position.set(-dW,dH/2,0);dop.rotation.y=Math.PI/2;deliveryGroup.add(dop);exteriorPanels.push(dop);
+  // 內側（local +x，靠近印刷機，下半保留出紙口）
+  const dip=new THREE.Mesh(new THREE.PlaneGeometry(dD*2,dH*0.4),dm());
+  dip.position.set(dW,dH*0.8,0);dip.rotation.y=-Math.PI/2;deliveryGroup.add(dip);exteriorPanels.push(dip);
+  const lab=makeTextLabel('收紙','Delivery','#5ad0a8');lab.position.set(0,13,0);lab.userData.infoKey='收紙';deliveryGroup.add(lab);labelSprites.push(lab);
+}
+
+function buildExteriorHousing(){
+  // unitGap=16 → unitX: 24,8,-8,-24 → outer edge ±29.2 → W=58.4
+  const W=58.4, H=20, D=10.4, UW=9.4;
+  const pm=()=>new THREE.MeshStandardMaterial({
+    color:0x3d4652,metalness:.25,roughness:.65,transparent:true,opacity:1,side:THREE.DoubleSide
+  });
+  // ── 前板：每單元獨立帶滾筒視窗紋理 ──
+  const ftex=makeFrontPanelTexture();
+  printOrder.forEach((col,i)=>{
+    const fp=new THREE.Mesh(new THREE.PlaneGeometry(UW,H),
+      new THREE.MeshStandardMaterial({map:ftex,transparent:true,opacity:1,side:THREE.FrontSide,roughness:.7,metalness:.1}));
+    fp.position.set(unitX(i),H/2,5.21);scene.add(fp);exteriorPanels.push(fp);
+  });
+  // ── 後板（整體）──
+  const bp=new THREE.Mesh(new THREE.PlaneGeometry(W,H),pm());
+  bp.position.set(0,H/2,-5.21);scene.add(bp);exteriorPanels.push(bp);
+  // ── 頂板 ──
+  const tp=new THREE.Mesh(new THREE.PlaneGeometry(W,D),pm());
+  tp.rotation.x=-Math.PI/2;tp.position.set(0,H,0);scene.add(tp);exteriorPanels.push(tp);
+  // ── 左右側板（±29.2）──
+  const lp=new THREE.Mesh(new THREE.PlaneGeometry(D,H),pm());
+  lp.position.set(-29.2,H/2,0);lp.rotation.y=Math.PI/2;scene.add(lp);exteriorPanels.push(lp);
+  const rp=new THREE.Mesh(new THREE.PlaneGeometry(D,H),pm());
+  rp.position.set(29.2,H/2,0);rp.rotation.y=Math.PI/2;scene.add(rp);exteriorPanels.push(rp);
+  // ── 單元分隔條（unitGap=16 → 間距在 ±16, 0）──
+  for(let i=0;i<3;i++){
+    const xi=(unitX(i)+unitX(i+1))/2;   // 16, 0, -16
+    [5.22,-5.22].forEach(zi=>{
+      const sep=new THREE.Mesh(new THREE.BoxGeometry(0.5,H,0.06),
+        new THREE.MeshStandardMaterial({color:0x22292e,transparent:true,opacity:1}));
+      sep.position.set(xi,H/2,zi);scene.add(sep);exteriorPanels.push(sep);
+    });
+  }
+  // ── 頂蓋壓條（每單元）──
+  printOrder.forEach((col,i)=>{
+    const cap=new THREE.Mesh(new THREE.BoxGeometry(UW,1.0,D),
+      new THREE.MeshStandardMaterial({color:0x485260,transparent:true,opacity:1}));
+    cap.position.set(unitX(i),H+0.5,0);scene.add(cap);exteriorPanels.push(cap);
+  });
+}
+
+// =========================================================
+//  紙張（水平平放，圖案朝上）
+// =========================================================
+const papers=[];let deliveredCount=0;
+class Paper{
+  constructor(){
+    this.stage=0;this.x=CFG.feederX-3;this.state='lift';
+    // 薄盒：只有頂面印圖（單面），底面與四邊為白紙 → 下方不會出現顏色
+    const geo=new THREE.BoxGeometry(CFG.paperLen,0.06,CFG.paperWid);
+    const white=new THREE.MeshBasicMaterial({color:0xf2f2ee});
+    this.topMat=new THREE.MeshBasicMaterial({map:paperTextures[0]});  // 不受光，色彩準確
+    // Box 面序 [+x,-x,+y,-y,+z,-z]；僅 +y(頂面)印圖
+    this.mesh=new THREE.Mesh(geo,[white,white,this.topMat,white,white,white]);
+    this.mesh.castShadow=true;scene.add(this.mesh);
+    this.y=8.0;this.z=0;
+  }
+  setTex(){this.topMat.map=paperTextures[this.stage];this.topMat.needsUpdate=true;}
+  update(dt){
+    const v=20*speed*dt;
+    if(this.state==='lift'){
+      this.y+=((CFG.paperPathY)-this.y)*0.14;this.x-=v*0.3;
+      if(Math.abs(this.y-CFG.paperPathY)<0.25){this.state='travel';this.y=CFG.paperPathY;}
+    } else if(this.state==='travel'){
+      this.x-=v;
+      this.y=CFG.paperPathY+Math.sin(this.x*0.4)*0.18;   // 過滾筒微起伏
+      for(let i=this.stage;i<4;i++){
+        if(this.x<=unitX(i)+0.15){this.stage=i+1;this.setTex();onColorApplied(printOrder[i]);}
+        else break;
+      }
+      if(this.x<=CFG.deliveryX+5){this.state='drop';}
+    } else {
+      const top=deliveryStack.position.y + deliveryStack.geometry.parameters.height/2;
+      this.x-=v*0.4;this.y+=((top+0.25)-this.y)*0.15;   // 落在收紙堆頂部
+      if(this.x<=CFG.deliveryX){this.finish();}
+    }
+    this.mesh.position.set(this.x,this.y,this.z);
+  }
+  finish(){
+    scene.remove(this.mesh);deliveredCount++;
+    const h=Math.min(0.3+deliveredCount*0.14,7);
+    deliveryStack.geometry.dispose();
+    deliveryStack.geometry=new THREE.BoxGeometry(CFG.paperLen,h,CFG.paperWid);
+    deliveryStack.position.y=DELIV_BASE+h/2;          // 底面固定，往上長高
+    deliveryStack.material[2].map=paperTextures[4];deliveryStack.material[2].needsUpdate=true;
+    const idx=papers.indexOf(this);if(idx>=0)papers.splice(idx,1);
+  }
+}
+
+// =========================================================
+//  UI 連動
+// =========================================================
+const elStage=document.getElementById('st-stage');
+const elName=document.getElementById('st-name');
+const elStatus=document.getElementById('status');
+const prevCanvas=document.getElementById('prev-canvas');
+const prevCtx=prevCanvas.getContext('2d');
+const indDots=[...document.querySelectorAll('#cmyk-ind .dot')];
+const chips=[...document.querySelectorAll('#preview .chip')];
+const STAGE_TAG={K:'單元 K',C:'單元 C',M:'單元 M',Y:'單元 Y'};
+const COLOR_LABEL={K:'黑版（K）印版轉橡皮布',C:'青版（C）印版轉橡皮布',M:'洋紅版（M）印版轉橡皮布',Y:'黃版（Y）完成疊印'};
+let previewKey='';
+function updatePreview(arr){
+  const applied=new Set(arr);const key=arr.join('');
+  if(key!==previewKey){previewKey=key;
+    prevCtx.fillStyle='#fff';prevCtx.fillRect(0,0,prevCanvas.width,prevCanvas.height);
+    prevCtx.drawImage(renderSeparation(applied,prevCanvas.width,prevCanvas.height),0,0);
+    chips.forEach(ch=>ch.classList.toggle('on',applied.has(ch.dataset.c)));
+    indDots.forEach(d=>d.classList.toggle('on',applied.has(d.dataset.c)));
+  }
+}
+function onColorApplied(col){
+  elStage.textContent=STAGE_TAG[col];
+  elName.textContent=COLOR_LABEL[col];
+  if(document.getElementById('info-panel').style.display!=='block') elStatus.style.display='';
+}
+// 點選 CMYK 色塊：手動試疊印顏色（全部取消則回到自動跟隨紙張）
+let manualPreview=null;
+chips.forEach(ch=>{ ch.style.cursor='pointer'; ch.title='點選試疊印 CMYK';
+  ch.addEventListener('click',()=>{
+    if(manualPreview===null) manualPreview=new Set(['C','M','Y','K'].filter(x=>previewKey.includes(x)));
+    const c=ch.dataset.c;
+    manualPreview.has(c)?manualPreview.delete(c):manualPreview.add(c);
+    if(manualPreview.size===0){ manualPreview=null; return; }
+    previewKey=''; updatePreview(['C','M','Y','K'].filter(x=>manualPreview.has(x)));
+  });
+});
+function updateStatusFromLead(){
+  let lead=null;papers.forEach(p=>{if(!lead||p.x<lead.x)lead=p;});
+  if(lead){
+    if(manualPreview===null) updatePreview(printOrder.slice(0,lead.stage));
+    // 給紙 / 收紙 階段隱藏狀態欄，僅在四色印刷單元內顯示
+    if(lead.state==='drop'||lead.stage===4||lead.stage===0){
+      elStatus.style.display='none';
+    }
+  } else {
+    if(manualPreview===null) updatePreview([]);
+    elStatus.style.display='none';
+  }
+}
+
+// 網點（保留函式，未使用）
+function buildHalftone(){
+  const cv=document.getElementById('ht-canvas');if(!cv)return;const ctx=cv.getContext('2d');
+  const W=cv.width,H=cv.height;ctx.fillStyle='#fff';ctx.fillRect(0,0,W,H);
+  const ang={C:15,M:75,Y:0,K:45},css={C:'#00aeef',M:'#ec008c',Y:'#e8d400',K:'#111'},cell=8;
+  ['Y','C','M','K'].forEach(ch=>{
+    ctx.save();ctx.globalCompositeOperation='multiply';
+    ctx.translate(W/2,H/2);ctx.rotate(ang[ch]*Math.PI/180);ctx.translate(-W/2,-H/2);
+    ctx.fillStyle=css[ch];
+    const plane=ch==='C'?sepC:ch==='M'?sepM:ch==='Y'?sepY:sepK;
+    for(let gy=-H;gy<H*2;gy+=cell)for(let gx=-W;gx<W*2;gx+=cell){
+      const sx=Math.floor(gx/W*POSTER_W),sy=Math.floor(gy/H*POSTER_H);
+      if(sx<0||sy<0||sx>=POSTER_W||sy>=POSTER_H)continue;
+      const cov=plane[sy*POSTER_W+sx];const r=Math.sqrt(cov)*(cell*0.62);
+      if(r>0.3){ctx.beginPath();ctx.arc(gx,gy,r,0,7);ctx.fill();}
+    }
+    ctx.restore();
+  });
+}
+
+// =========================================================
+//  標籤點擊說明（docx 內容）
+// =========================================================
+const LABEL_INFO={
+  '給紙':{title:'給紙部（Feeder / 飛達）',body:'負責將堆疊紙張「一張接一張」高速送入印刷機。\n\n飛達頭（Feeder Head）：分紙吸嘴吸起紙張後緣，送紙吸嘴向前推送；風嘴（Blowers）在紙疊前方吹風，形成空氣墊防止雙張。\n\n電眼（Double Sheet Detector）：偵測雙張，若誤送兩張立刻停機，避免壓壞印版或橡皮布。\n\n前規（Front Lays）：決定紙張天地（上下）定位。\n側規（Side Lays / Puller）：將紙張往左右拉齊，決定左右定位。套印準確度的關鍵即在此兩組定位件。'},
+  '收紙':{title:'收紙部（Delivery Unit）',body:'將印刷完成的紙張整齊堆疊收集。\n\n收紙咬爪排（Delivery Gripper Bars）：由鏈條帶動，把剛壓印完成的紙張從最後一個滾筒接過來，甩送到收紙台上。\n\n噴粉裝置（Anti-setoff Powder Spray）：噴灑極細澱粉粉末作為隔離層，防止油墨剛印完尚未乾燥時「背印」（oil setoff）到上一張背面。台灣俗稱「噴粉」。\n\n乾燥系統：傳統油墨用紅外線（IR）或熱風；UV/LED-UV 印刷則用紫外線燈管瞬間固化。'},
+  '印版滾筒':{title:'印版滾筒（Plate Cylinder）',body:'固定印刷版（PS 版或 CTP 鋁版）的滾筒，為供墨系統的起點。\n\n版夾（Plate Clamps）：位於滾筒開口，夾緊並拉直印版前後端。現代機台多為「自動上版（Autoplate）」系統。\n\n襯墊（Cylinder Packing）：印版下方墊特殊厚度紙張（包襯），達到精準印刷壓力。\n\n版滾筒微調（Plate Cocking）：允許印版微幅傾斜、前後左右移動，用於四色精準套印對準。'},
+  '橡皮布滾筒':{title:'橡皮布滾筒（Blanket Cylinder）',body:'包覆彈性橡皮布，接收印版上的油墨圖文，再轉印到紙張。台灣師傅直接稱「Blanket」或「布蘭開特」。\n\n橡皮布襯墊（Blanket Packing）：橡皮布下方的精密襯紙，微調與印版、壓印滾筒之間的「壓縮量（印刷壓力）」。\n\n滾枕（Bearers）：滾筒兩端的硬化鋼圈，兩滾筒合壓時互碰以維持固定中心距，確保運轉平穩、減少齒輪震動。\n\n圖文在橡皮布上為「鏡像」，轉印到紙上後還原為正向。'},
+  '壓印滾筒':{title:'壓印滾筒（Impression Cylinder）',body:'表面為高硬度鋼體（通常鍍鉻防鏽），負責支撐紙張並提供強大均勻的壓力，將橡皮布上的油墨「擠壓」進紙張纖維。\n\n咬爪（Grippers / 咬子）：內嵌在壓印滾筒開口的整排機械夾子，高速運轉下死死夾住紙頭（紙唇），確保紙張在壓印過程中絕不位移。\n\n壓印間隙精度直接影響墨色飽和度與網點擴張值（Dot Gain）。'},
+  '墨斗':{title:'墨斗與輸墨系統（Inking System / 墨路）',body:'墨路由 15–20 多支粗細、材質（橡膠與硬質金屬）交錯的輥筒組成，目的是把黏稠油墨「打薄、打勻、傳遞」。\n\n墨斗（Ink Fountain）：存放油墨的槽。\n\n墨斗鍵（Ink Keys / 墨刀）：墨斗底部一排可微調間隙的鋼片，現代機台由電腦控制開度（0–100%），決定紙張由左到右各區域的供墨量，是控制墨色濃淡的主要手段。\n\n墨斗輥（Fountain Roller / 墨斗輪）：在墨斗口緩慢旋轉，把油墨帶出來的第一支金屬輥筒。\n\n出墨輥（Duct Roller / 跳輪）：在墨斗輥與傳墨輥之間「來回擺動、點狀接墨」的橡膠輥——擺過去吸一點墨，再擺回來傳給下一支，像搬運工一樣逐量轉送。'},
+  '著墨輥':{title:'著墨輥（Form Inking Rollers / 版面墨輪）',body:'直接與印版滾筒接觸、把油墨均勻塗到印版圖文區的最後幾支橡膠輥，一台色組通常有 3–4 支。\n\n壓力調校至關重要，業界以「打墨線（Ink Stripe）」方式確認接觸量：太緊會磨損印版或產生嚴重條紋，太鬆則上墨不均勻。\n\n串墨輥（Oscillating Rollers / 橫擺輪）：位於著墨輥前方的硬質金屬輥。除順向旋轉外，還會「左右橫向往復移動」，把墨斗一條一條帶下來的墨痕橫向揉勻，消除墨道痕跡，使墨膜厚度絕對均勻。'},
+  '水槽':{title:'水槽（Dampening Trough / Water Fountain）',body:'存放潤版液（Dampening Solution）的水箱，水斗輥浸泡其中旋轉將潤版液帶起，供給整個水路系統。\n\n潤版液成分：通常為純水加少量 IPA（異丙醇）或酒精替代品，以及 pH 緩衝劑，維持印版親水性與油墨乳化平衡。\n\n平版印刷靠「水墨相斥」原理：空白區（非圖文區）的親水層阻止油墨沾染；圖文區（親油層）才能附著油墨，使圖文得以選擇性上墨。'},
+  '水斗輥':{title:'水斗輥與計量輥（Water Fountain Roller & Metering Roller）',body:'水斗輥（Water Fountain Roller / 水斗輪）：浸泡在水槽中緩慢旋轉，表面覆蓋親水材質（鉻層或特殊橡膠），負責將潤版液從水槽中帶出。\n\n計量輥（Metering Roller / 壓水輪）：緊緊壓在水斗輥旁，透過精密調整兩者的擠壓壓力或速度差，精確控制帶出的水膜厚度（即供水量多寡），是維持水墨平衡的關鍵調整點。'},
+  '靠版水輥':{title:'著水輥 / 靠版水輥（Form Dampening Roller / 版面水輪）',body:'直接接觸印版滾筒、把潤版液塗上印版的最後一支輥筒，又稱「版面水輪」。\n\n現代高速機多採用連續給水系統（如海德堡 Alcolor、小森 Si 系統），水膜極度平滑細薄，響應速度快，可快速穩定水墨平衡，大幅減少啟動廢紙張數。\n\n串水輥（Oscillating Dampening Roller）：類似墨路的串墨輥，配合左右橫向擺動，把水膜揉得更細、更均勻。'},
+  '紙張':{title:'紙張（Paper Sheet / 承印物）',body:'在壓印滾筒咬爪夾持下，精準通過橡皮布與壓印滾筒之間的壓印點（Nip Point）。\n\n油墨依印刷色序（此機為 K→C→M→Y）逐一疊印在紙面，利用疊印透明性（Ink Transparency）合成全彩影像。\n\n壓力使油墨滲入紙張纖維，稱為「壓縮量（Impression）」。過大的壓力會造成網點擴張（Dot Gain），影響色彩準確性。'},
+  '印刷單元':{title:'印刷單元（Printing Unit）',body:'張頁機的核心，標準平版印刷採「水墨平衡」與「間接印刷（Offset）」雙重原理。\n\n每個色組的印刷流程：\n①印版先受潤版液，空白區形成拒墨水膜\n②著墨輥將油墨塗上圖文區\n③油墨從印版轉印到橡皮布（圖文變「鏡像」）\n④橡皮布再轉印到紙張（鏡像還原為「正向」）\n\n因此圖文在印版上為「正向」，在橡皮布上為「反向（鏡像）」，最終印在紙上為「正向」。'},
+};
+let _statusVisibleBeforeInfo=false;
+function showLabelInfo(sprite){
+  const key=sprite.userData.infoKey;if(!key)return;
+  const info=LABEL_INFO[key];if(!info)return;
+  const body=info.body.replace(/\n/g,'<br>');
+  document.getElementById('ip-title').textContent=info.title;
+  document.getElementById('ip-body').innerHTML=body;
+  _statusVisibleBeforeInfo=(elStatus.style.display!=='none');
+  elStatus.style.display='none';
+  document.getElementById('info-panel').style.display='block';
+}
+function closeInfoPanel(){
+  document.getElementById('info-panel').style.display='none';
+  if(_statusVisibleBeforeInfo) elStatus.style.display='';
+}
+// ── 說明面板自由拖曳 ──────────────────────────────
+(function(){
+  const panel=document.getElementById('info-panel');
+  const handle=panel.querySelector('.ip-hdr');
+  let dragging=false,ox=0,oy=0;
+  handle.addEventListener('mousedown',e=>{
+    if(e.target.classList.contains('ip-close'))return;
+    dragging=true;
+    ox=e.clientX-panel.offsetLeft;
+    oy=e.clientY-panel.offsetTop;
+    panel.style.right='auto'; // 消除任何 right 約束
+    e.stopPropagation();e.preventDefault();
+  });
+  window.addEventListener('mousemove',e=>{
+    if(!dragging)return;
+    let nx=e.clientX-ox, ny=e.clientY-oy;
+    nx=Math.max(0,Math.min(nx,innerWidth-panel.offsetWidth));
+    ny=Math.max(0,Math.min(ny,innerHeight-60));
+    panel.style.left=nx+'px';panel.style.top=ny+'px';
+  });
+  window.addEventListener('mouseup',()=>{dragging=false;});
+})();
+// ── 預覽面板自由拖曳 ──────────────────────────────
+(function(){
+  const panel=document.getElementById('preview');
+  let dragging=false,ox=0,oy=0;
+  panel.addEventListener('mousedown',e=>{
+    if(e.target.closest('.chip')||e.target.closest('.htbtn'))return;
+    dragging=true;
+    // 首次拖曳：將 right/bottom 轉換為 left/top 絕對座標
+    if(panel.style.left===''){
+      panel.style.left=panel.offsetLeft+'px';
+      panel.style.top=panel.offsetTop+'px';
+      panel.style.right='auto';panel.style.bottom='auto';
+    }
+    ox=e.clientX-panel.offsetLeft;
+    oy=e.clientY-panel.offsetTop;
+    e.stopPropagation();e.preventDefault();
+  });
+  window.addEventListener('mousemove',e=>{
+    if(!dragging)return;
+    let nx=e.clientX-ox,ny=e.clientY-oy;
+    nx=Math.max(0,Math.min(nx,innerWidth-panel.offsetWidth));
+    ny=Math.max(0,Math.min(ny,innerHeight-60));
+    panel.style.left=nx+'px';panel.style.top=ny+'px';
+  });
+  window.addEventListener('mouseup',()=>{dragging=false;});
+})();
+const ALL_INFO_ORDER=['給紙','印刷單元','水槽','水斗輥','靠版水輥','墨斗','著墨輥','印版滾筒','橡皮布滾筒','壓印滾筒','紙張','收紙'];
+function showAllInfo(){
+  const body=document.getElementById('aio-body');
+  if(!body.hasChildNodes()){
+    ALL_INFO_ORDER.forEach(key=>{
+      const info=LABEL_INFO[key];if(!info)return;
+      const card=document.createElement('div');card.className='aio-card';
+      const h=document.createElement('h3');h.textContent=info.title;
+      const p=document.createElement('p');p.innerHTML=info.body.replace(/\n/g,'<br>');
+      card.appendChild(h);card.appendChild(p);body.appendChild(card);
+    });
+  }
+  document.getElementById('all-info-overlay').classList.add('show');
+}
+
+// =========================================================
+//  相機控制
+// =========================================================
+let camRot={x:0.40,y:-0.6},camDist=100,camTarget=new THREE.Vector3(0,8,0);
+let drag=null,last={x:0,y:0};
+// ── 標籤拖曳 ──────────────────────────────────────
+let dragLabel=null,dragLM={x:0,y:0},dragLabelDown={x:0,y:0},didDragLabel=false;
+const _lRay=new THREE.Raycaster();
+function labelAtMouse(e){
+  const rc=canvas.getBoundingClientRect();
+  _lRay.setFromCamera(new THREE.Vector2(
+    (e.clientX-rc.left)/rc.width*2-1,
+    -((e.clientY-rc.top)/rc.height)*2+1),camera);
+  const vis=labelSprites.filter(s=>s.visible);
+  const h=_lRay.intersectObjects(vis);
+  return h.length?h[0].object:null;
+}
+canvas.addEventListener('mousedown',e=>{
+  if(e.button===0){
+    const lbl=labelAtMouse(e);
+    if(lbl){dragLabel=lbl;dragLM={x:e.clientX,y:e.clientY};dragLabelDown={x:e.clientX,y:e.clientY};didDragLabel=false;canvas.style.cursor='grabbing';return;}
+  }
+  last={x:e.clientX,y:e.clientY};drag=e.button===2?'pan':'rot';
+});
+addEventListener('mouseup',e=>{
+  if(dragLabel){
+    const moved=Math.hypot(e.clientX-dragLabelDown.x,e.clientY-dragLabelDown.y);
+    const lbl=dragLabel;dragLabel=null;canvas.style.cursor='default';
+    if(!didDragLabel&&moved<6)showLabelInfo(lbl); // 點擊→顯示說明
+    return;
+  }
+  drag=null;
+});
+addEventListener('mousemove',e=>{
+  // 標籤拖曳
+  if(dragLabel){
+    const moved=Math.hypot(e.clientX-dragLabelDown.x,e.clientY-dragLabelDown.y);
+    if(moved>6)didDragLabel=true;
+    if(didDragLabel){
+      const rc=canvas.getBoundingClientRect();
+      const dx=(e.clientX-dragLM.x)/rc.width*2,dy=-(e.clientY-dragLM.y)/rc.height*2;
+      const wp=new THREE.Vector3();dragLabel.getWorldPosition(wp);
+      const ndc=wp.clone().project(camera);
+      ndc.x+=dx;ndc.y+=dy;
+      const nw=ndc.clone().unproject(camera);
+      if(dragLabel.parent)dragLabel.parent.worldToLocal(nw);
+      dragLabel.position.copy(nw);
+    }
+    dragLM={x:e.clientX,y:e.clientY};return;
+  }
+  // 懸停顯示抓手指標
+  if(!drag){const lbl=labelAtMouse(e);canvas.style.cursor=lbl?'grab':'default';}
+  if(!drag)return;
+  const dx=e.clientX-last.x,dy=e.clientY-last.y;last={x:e.clientX,y:e.clientY};
+  if(drag==='rot'){camRot.y-=dx*0.005;camRot.x=Math.max(0.05,Math.min(1.45,camRot.x+dy*0.005));}
+  else{const right=new THREE.Vector3().crossVectors(camera.up,camera.getWorldDirection(new THREE.Vector3())).normalize();
+    camTarget.addScaledVector(right,dx*0.0012*camDist);camTarget.y+=dy*0.0012*camDist;}
+});
+canvas.addEventListener('contextmenu',e=>e.preventDefault());
+canvas.addEventListener('wheel',e=>{e.preventDefault();camDist=Math.max(30,Math.min(150,camDist+e.deltaY*0.05));},{passive:false});
+function updateCamera(){
+  camera.position.set(
+    camTarget.x+Math.sin(camRot.y)*Math.cos(camRot.x)*camDist,
+    camTarget.y+Math.sin(camRot.x)*camDist,
+    camTarget.z+Math.cos(camRot.y)*Math.cos(camRot.x)*camDist);
+  camera.lookAt(camTarget);
+}
+
+// =========================================================
+//  控制列
+// =========================================================
+document.getElementById('playBtn').addEventListener('click',e=>{paused=!paused;e.target.textContent=paused?'▶ 播放':'⏸ 暫停';});
+document.getElementById('resetBtn').addEventListener('click',()=>{
+  papers.forEach(p=>scene.remove(p.mesh));papers.length=0;deliveredCount=0;
+  deliveryStack.geometry.dispose();deliveryStack.geometry=new THREE.BoxGeometry(CFG.paperLen,0.3,CFG.paperWid);
+  deliveryStack.position.y=DELIV_BASE+0.15;
+  deliveryStack.material[2].map=null;deliveryStack.material[2].color.set(0xf2f2ee);deliveryStack.material[2].needsUpdate=true;
+  previewKey='';updatePreview([]);
+  camRot={x:0.40,y:-0.6};camDist=100;camTarget.set(0,8,0);
+});
+document.querySelectorAll('[data-spd]').forEach(p=>p.addEventListener('click',()=>{
+  document.querySelectorAll('[data-spd]').forEach(q=>q.classList.remove('active'));p.classList.add('active');speed=parseFloat(p.dataset.spd);}));
+document.querySelectorAll('[data-order]').forEach(p=>p.addEventListener('click',()=>{
+  document.querySelectorAll('[data-order]').forEach(q=>q.classList.remove('active'));p.classList.add('active');
+  printOrder=p.dataset.order.split('');buildPaperTextures();hardRebuild();previewKey='';}));
+document.getElementById('labelBtn').addEventListener('click',e=>{
+  showLabels=!showLabels;labelSprites.forEach(s=>s.visible=showLabels);e.target.textContent=showLabels?'🏷 標籤 開':'🏷 標籤 關';});
+document.getElementById('imgUpload').addEventListener('change',e=>{
+  const f=e.target.files[0];if(!f)return;const rd=new FileReader();
+  rd.onload=ev=>{const im=new Image();im.onload=()=>{customImage=im;computeSeparation();buildPaperTextures();
+    deliveryStack.material[2].map=null;deliveryStack.material[2].color.set(0xf2f2ee);deliveryStack.material[2].needsUpdate=true;previewKey='';updatePreview([]);};im.src=ev.target.result;};
+  rd.readAsDataURL(f);
+});
+
+function hardRebuild(){
+  for(let i=scene.children.length-1;i>=0;i--){const o=scene.children[i];if(o.isLight)continue;scene.remove(o);}
+  rollers.length=0;labelSprites.length=0;exteriorPanels.length=0;papers.forEach(p=>{});papers.length=0;deliveredCount=0;
+  buildScene();labelSprites.forEach(s=>s.visible=showLabels);
+}
+
+// =========================================================
+//  動畫迴圈
+// =========================================================
+let spawnT=0,lastT=performance.now();
+function animate(){
+  requestAnimationFrame(animate);
+  const now=performance.now();const dt=Math.min((now-lastT)/1000,0.05);lastT=now;
+  updateCamera();
+  if(!paused){
+    rollers.forEach(r=>r.mesh.rotation.y+=r.dir*2.4*speed*dt);   // 繞自身 Y(世界 Z) 滾動
+    spawnT+=dt;
+    if(spawnT>(1.15/speed)&&papers.length<8){spawnT=0;papers.push(new Paper());}
+    papers.forEach(p=>p.update(dt));
+    updateStatusFromLead();
+  }
+  // LOD 外觀蓋板：遠距實心外觀，camDist<50 淡出
+  const panelOp=Math.max(0,Math.min(1,(camDist-50)/20));
+  exteriorPanels.forEach(m=>{m.material.opacity=panelOp;m.visible=panelOp>0.01;});
+  renderer.render(scene,camera);
+}
+addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);});
+
+// ---------- 啟動 ----------
+function startAll(){
+  computeSeparation();buildPaperTextures();buildScene();
+  labelSprites.forEach(s=>s.visible=showLabels);
+  animate();
+}
+if(window.ISO_CHART_DATAURL){
+  const _img=new Image();
+  _img.onload=()=>{customImage=_img;startAll();};
+  _img.onerror=()=>startAll();
+  _img.src=window.ISO_CHART_DATAURL;
+} else { startAll(); }
+</script>
+</body>
+</html>
