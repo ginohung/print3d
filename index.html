@@ -591,20 +591,20 @@ function buildUnit(i,col){
   addRoller(g,0,8.0 ,0,2.6,len,makeBlanketTex(col),-1,window._blanketRot); // 橡皮布滾筒（鏡像影像）
   addRoller(g,0,2.8 ,0,2.6,len,stripeMat(0xffffff,0.0),+1);       // 印壓滾筒
 
-  // ===== 供墨系統（右上）：著墨輥 + 墨槽（橫向長槽，置於頂部）=====
+  // ===== 供墨系統（左上）：著墨輥 + 墨槽（橫向長槽，置於頂部）=====
   const inkMat=()=>new THREE.MeshStandardMaterial({color:INK[col].hex,metalness:.45,roughness:.32});
-  addRoller(g,1.3,15.7,0,0.95,len-1.6,inkMat(),-1);   // 著墨輥（接觸印版頂部）
-  addRoller(g,2.9,16.1,0,0.85,len-2.0,inkMat(),+1);   // 著墨輥
+  addRoller(g,-1.3,15.7,0,0.95,len-1.6,inkMat(),-1);  // 著墨輥（接觸印版頂部）
+  addRoller(g,-2.9,16.1,0,0.85,len-2.0,inkMat(),+1);  // 著墨輥
   const inkFount=new THREE.Mesh(new THREE.BoxGeometry(2.2,1.3,len-1.0),
     new THREE.MeshStandardMaterial({color:INK[col].hex,metalness:.25,roughness:.5}));
-  inkFount.position.set(3.9,17.4,0);g.add(inkFount);   // 墨槽（橫向長槽）
+  inkFount.position.set(-3.9,17.4,0);g.add(inkFount);  // 墨槽（橫向長槽）
 
-  // ===== 供水系統（左上）：靠版水輥 + 水斗輥 + 水槽（橫向長槽）=====
-  addRoller(g,-1.4,15.7,0,0.9,len-1.8,matRoller,-1);  // 靠版水輥（接觸印版）
-  addRoller(g,-2.9,16.1,0,0.7,len-2.2,matRoller,+1);  // 水斗輥
+  // ===== 供水系統（右上）：靠版水輥 + 水斗輥 + 水槽（橫向長槽）=====
+  addRoller(g,1.4,15.7,0,0.9,len-1.8,matRoller,-1);   // 靠版水輥（接觸印版）
+  addRoller(g,2.9,16.1,0,0.7,len-2.2,matRoller,+1);   // 水斗輥
   const waterFount=new THREE.Mesh(new THREE.BoxGeometry(1.6,1.2,len-1.0),
     new THREE.MeshStandardMaterial({color:0x2f8fe0,metalness:.3,roughness:.35,emissive:0x0a3a66,emissiveIntensity:.3}));
-  waterFount.position.set(-3.4,14.8,0);g.add(waterFount); // 水槽（水斗輥正下方）
+  waterFount.position.set(3.4,14.8,0);g.add(waterFount);  // 水槽（水斗輥正下方）
 
   // 單元頂標（所有單元都顯示）
   const ul=makeUnitLabel(i,col);ul.position.set(0,20.6,0);ul.userData.infoKey='印刷單元';g.add(ul);labelSprites.push(ul);
@@ -613,13 +613,13 @@ function buildUnit(i,col){
   // 細部零件標籤：只在一組單元（單元4·Y）顯示，依參考圖命名
   if(i===3){
     const add=(zh,en,x,y,z)=>{const s=makeCylLabel(zh,en);s.position.set(x,y,z);s.userData.infoKey=zh;g.add(s);labelSprites.push(s);};
-    // 供墨系統（右側）
-    add('墨斗','Ink Fountain',         5.5,19.8,4.0);
-    add('著墨輥','Form Inking Rollers', 5.5,15.8,4.0);
-    // 供水系統（左側）
-    add('水斗輥','Water Fount. Rlr.', -5.5,17.8,4.0);
-    add('靠版水輥','Form Damp. Rlr.', -5.5,15.0,4.0);
-    add('水槽','Water Fountain',      -5.5,13.2,4.0);
+    // 供墨系統（左側）
+    add('墨斗','Ink Fountain',         -5.5,19.8,4.0);
+    add('著墨輥','Form Inking Rollers', -5.5,15.8,4.0);
+    // 供水系統（右側）
+    add('水斗輥','Water Fount. Rlr.',   5.5,17.8,4.0);
+    add('靠版水輥','Form Damp. Rlr.',   5.5,15.0,4.0);
+    add('水槽','Water Fountain',        5.5,13.2,4.0);
     // 三大滾筒（居中）
     add('印版滾筒','Plate Cylinder',   0.0,12.8,5.2);
     add('橡皮布滾筒','Blanket Cylinder',0.0,8.0 ,5.2);
